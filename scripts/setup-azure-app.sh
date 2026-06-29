@@ -154,15 +154,61 @@ success "Uprawnienia dodane (openid, profile, email, User.Read)"
 header "Krok 4/5 — Generowanie Client Secret"
 echo ""
 
-log "Tworzę client secret (ważny do: $SECRET_END_DATE)..."
-CLIENT_SECRET=$(az ad app credential reset \
-  --id "$APP_ID" \
-  --display-name "timesheet-secret" \
-  --end-date "$SECRET_END_DATE" \
-  --query "password" \
-  -o tsv)
+# Potrzebujemy Object ID aplikacji (różny od App ID / Client ID)
+APP_OBJECT_ID=$(az ad app show --id "$APP_ID" --query "id" -o tsv)
 
-success "Client secret wygenerowany"
+# Metoda 1: Microsoft Graph API przez az rest
+# Bardziej niezawodna — omija blokady polityki na credential reset
+log "Tworzę client secret przez Microsoft Graph API (ważny do: $SECRET_END_DATE)..."
+
+SECRET_RESPONSE=$(az rest \
+  --method POST \
+  --url "https://graph.microsoft.com/v1.0/applications/${APP_OBJECT_ID}/addPassword" \
+  --headers "Content-Type=application/json" \
+  --body "{
+    \"passwordCredential\": {
+      \"displayName\": \"timesheet-secret\",
+      \"endDateTime\": \"${SECRET_END_DATE}T23:59:59Z\"
+    }
+  }" 2>&1) || GRAPH_FAILED=true
+
+if [[ "${GRAPH_FAILED:-false}" == "true" ]] || [[ -z "$SECRET_RESPONSE" ]]; then
+  # Metoda 2: fallback do az ad app credential reset --append
+  log "Graph API nie powiódł się, próbuję az credential reset --append..."
+  CLIENT_SECRET=$(az ad app credential reset \
+    --id "$APP_ID" \
+    --display-name "timesheet-secret" \
+    --end-date "$SECRET_END_DATE" \
+    --append \
+    --query "password" \
+    -o tsv 2>&1) || CRED_FAILED=true
+
+  if [[ "${CRED_FAILED:-false}" == "true" ]]; then
+    echo ""
+    error "Nie można automatycznie wygenerować client secret."
+    echo ""
+    echo -e "  ${ORANGE}Polityka Entra ID blokuje tworzenie sekretów przez CLI.${RESET}"
+    echo -e "  Utwórz secret ręcznie w Azure Portal:"
+    echo ""
+    echo -e "  1. Otwórz: ${CYAN}https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationMenuBlade/~/Credentials/appId/${APP_ID}${RESET}"
+    echo -e "  2. Kliknij ${BOLD}+ New client secret${RESET}"
+    echo -e "  3. Description: timesheet-secret | Expires: ${SECRET_END_DATE}"
+    echo -e "  4. Skopiuj VALUE (nie ID!) i wklej poniżej:"
+    echo ""
+    read -rsp "  Client secret VALUE: " CLIENT_SECRET
+    echo ""
+    [[ -z "$CLIENT_SECRET" ]] && { error "Secret nie może być pusty."; exit 1; }
+  fi
+else
+  CLIENT_SECRET=$(echo "$SECRET_RESPONSE" | grep -o '"secretText":"[^"]*"' | cut -d'"' -f4)
+  # Alternatywne parsowanie jeśli jq niedostępne
+  if [[ -z "$CLIENT_SECRET" ]] && command -v python3 &>/dev/null; then
+    CLIENT_SECRET=$(echo "$SECRET_RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin)['secretText'])")
+  fi
+  [[ -z "$CLIENT_SECRET" ]] && { error "Nie udało się wyciągnąć secretText z odpowiedzi Graph API."; exit 1; }
+fi
+
+success "Client secret wygenerowany (ważny do: $SECRET_END_DATE)"
 
 # ─── JWT Secret ──────────────────────────────────────────────────────────────
 log "Generuję losowy JWT_SECRET..."

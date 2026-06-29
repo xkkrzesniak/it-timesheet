@@ -34,12 +34,37 @@ MONTHS="${MONTHS:-12}"
 END_DATE=$(date -d "+${MONTHS} months" +%Y-%m-%d 2>/dev/null \
   || date -v "+${MONTHS}m" +%Y-%m-%d 2>/dev/null)
 
-log "Generuję nowy secret..."
-NEW_SECRET=$(az ad app credential reset \
-  --id "$AZURE_CLIENT_ID" \
-  --display-name "timesheet-secret-$(date +%Y%m)" \
-  --end-date "$END_DATE" \
-  --query "password" -o tsv)
+LABEL="timesheet-secret-$(date +%Y%m)"
+APP_OBJECT_ID=$(az ad app show --id "$AZURE_CLIENT_ID" --query "id" -o tsv)
+
+log "Generuję nowy secret przez Microsoft Graph API..."
+SECRET_RESPONSE=$(az rest \
+  --method POST \
+  --url "https://graph.microsoft.com/v1.0/applications/${APP_OBJECT_ID}/addPassword" \
+  --headers "Content-Type=application/json" \
+  --body "{\"passwordCredential\":{\"displayName\":\"${LABEL}\",\"endDateTime\":\"${END_DATE}T23:59:59Z\"}}" \
+  2>&1) || GRAPH_FAILED=true
+
+if [[ "${GRAPH_FAILED:-false}" == "true" ]]; then
+  log "Graph API nie powiódł się, próbuję az credential reset --append..."
+  NEW_SECRET=$(az ad app credential reset \
+    --id "$AZURE_CLIENT_ID" \
+    --display-name "$LABEL" \
+    --end-date "$END_DATE" \
+    --append \
+    --query "password" -o tsv 2>&1) || {
+    error "Nie można wygenerować secretu automatycznie."
+    echo "Utwórz ręcznie: https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationMenuBlade/~/Credentials/appId/${AZURE_CLIENT_ID}"
+  }
+else
+  NEW_SECRET=$(echo "$SECRET_RESPONSE" | grep -o '"secretText":"[^"]*"' | cut -d'"' -f4)
+  if [[ -z "$NEW_SECRET" ]] && command -v python3 &>/dev/null; then
+    NEW_SECRET=$(echo "$SECRET_RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin)['secretText'])")
+  fi
+  [[ -z "$NEW_SECRET" ]] && error "Nie udało się wyciągnąć secretText."
+fi
+
+success "Nowy secret wygenerowany (ważny do: $END_DATE)"
 
 # Backup + podmiana w .env
 cp "$BACKEND_ENV" "${BACKEND_ENV}.backup.$(date +%Y%m%d%H%M%S)"
