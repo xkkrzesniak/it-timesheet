@@ -151,25 +151,42 @@ fi
 pm2 save
 success "PM2 uruchomiony"
 
-# ─── Nginx ───────────────────────────────────────────────────────────────────
-header "Krok 5 — Nginx"
+# ─── Nginx + Let's Encrypt ───────────────────────────────────────────────────
+header "Krok 5 — Nginx + SSL (Let's Encrypt)"
 echo ""
 
 NGINX_CONF="/etc/nginx/sites-available/timesheet"
 
-if [[ -z "$DOMAIN" ]]; then
+if [[ -z "${DOMAIN:-}" ]]; then
   read -rp "  Domena produkcyjna (np. timesheet.lemonpro.com) [pomiń=tylko IP]: " DOMAIN
+  DOMAIN="${DOMAIN:-}"
+fi
+
+# E-mail do Certbot — wyciągnij z .env lub zapytaj
+SSL_EMAIL=""
+if [[ -f "$ROOT_DIR/backend/.env" ]]; then
+  SSL_EMAIL=$(grep -oP 'AZURE_.*EMAIL[=:]\K.*' "$ROOT_DIR/backend/.env" 2>/dev/null || true)
+fi
+if [[ -z "$SSL_EMAIL" && -n "${DOMAIN:-}" ]]; then
+  read -rp "  E-mail dla Let's Encrypt (powiadomienia o wygaśnięciu): " SSL_EMAIL
 fi
 
 NGINX_SERVER_NAME="${DOMAIN:-_}"
 
-if [[ $EUID -eq 0 ]]; then
+write_nginx_http_conf() {
+  # Konfiguracja HTTP — Certbot doda blok HTTPS automatycznie
   cat > "$NGINX_CONF" <<NGINX
 server {
     listen 80;
+    listen [::]:80;
     server_name ${NGINX_SERVER_NAME};
 
-    # Frontend (statyczne pliki React)
+    # Potrzebne do weryfikacji Let's Encrypt ACME challenge
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    # Frontend — statyczne pliki React
     root ${ROOT_DIR}/frontend/dist;
     index index.html;
 
@@ -178,7 +195,7 @@ server {
         try_files \$uri \$uri/ /index.html;
     }
 
-    # API proxy do Fastify
+    # API proxy do Fastify (port 3001)
     location /api/ {
         proxy_pass http://127.0.0.1:3001;
         proxy_http_version 1.1;
@@ -189,60 +206,111 @@ server {
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
         proxy_cache_bypass \$http_upgrade;
+        proxy_read_timeout 60s;
     }
 
     # Gzip
     gzip on;
-    gzip_types text/plain text/css application/javascript application/json;
+    gzip_vary on;
+    gzip_types text/plain text/css application/javascript application/json
+               application/x-javascript text/xml application/xml image/svg+xml;
     gzip_min_length 1000;
 
-    # Cache statycznych assetów
-    location ~* \.(js|css|png|jpg|ico|svg|woff2)$ {
-        expires 30d;
-        add_header Cache-Control "public, no-transform";
+    # Cache statycznych assetów Vite (mają hash w nazwie)
+    location ~* \.(js|css|woff2|woff|ttf|ico|svg|png|jpg|webp)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        access_log off;
+    }
+
+    # Nie cachuj index.html (SPA entry point)
+    location = /index.html {
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
     }
 }
 NGINX
+}
+
+if [[ $EUID -eq 0 ]]; then
+  # Katalog dla ACME challenge
+  mkdir -p /var/www/certbot
+
+  write_nginx_http_conf
 
   ln -sf "$NGINX_CONF" /etc/nginx/sites-enabled/timesheet
   rm -f /etc/nginx/sites-enabled/default
-  nginx -t && systemctl reload nginx
-  success "Nginx skonfigurowany dla: $NGINX_SERVER_NAME"
 
-  # SSL przez Certbot
+  nginx -t && systemctl reload nginx
+  success "Nginx (HTTP) skonfigurowany"
+
+  # ── Let's Encrypt ────────────────────────────────────────────────────────
   if [[ -n "$DOMAIN" ]]; then
-    read -rp "  Skonfigurować SSL (Let's Encrypt) dla $DOMAIN? [T/n]: " DO_SSL
-    DO_SSL="${DO_SSL:-T}"
-    if [[ "$DO_SSL" =~ ^[Tt]$ ]]; then
-      if ! command -v certbot &>/dev/null; then
-        apt-get install -y certbot python3-certbot-nginx
-      fi
-      certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos \
-        --email "$(grep -oE '[^@]+@[^ ]+' <<< "$CURRENT_USER" || echo "admin@example.com")" \
-        --redirect || log "Certbot — sprawdź logi jeśli SSL nie działa"
+    # Instalacja Certbot
+    if ! command -v certbot &>/dev/null; then
+      log "Instaluję Certbot..."
+      apt-get install -y certbot python3-certbot-nginx
     fi
+    success "Certbot $(certbot --version 2>&1 | head -1)"
+
+    log "Pobieranie certyfikatu Let's Encrypt dla: $DOMAIN"
+    certbot --nginx \
+      --non-interactive \
+      --agree-tos \
+      --email "$SSL_EMAIL" \
+      --domains "$DOMAIN" \
+      --redirect \
+      --hsts \
+      --staple-ocsp \
+      --keep-until-expiring
+
+    success "Certyfikat SSL wystawiony"
+
+    # Weryfikacja auto-odnowienia
+    log "Sprawdzam timer auto-odnowienia certbot..."
+    if systemctl is-active --quiet certbot.timer 2>/dev/null; then
+      success "certbot.timer aktywny — certyfikat odnawia się automatycznie"
+    elif systemctl is-active --quiet snap.certbot.renew.timer 2>/dev/null; then
+      success "snap certbot.timer aktywny — auto-odnowienie OK"
+    else
+      # Fallback: dodaj cron jeśli timer nie istnieje
+      log "Dodaję cron dla auto-odnowienia (2x dziennie)..."
+      CRON_LINE="0 3,15 * * * certbot renew --quiet --post-hook 'systemctl reload nginx'"
+      (crontab -l 2>/dev/null | grep -qF "certbot renew") \
+        || (crontab -l 2>/dev/null; echo "$CRON_LINE") | crontab -
+      success "Cron auto-odnowienia dodany"
+    fi
+
+    # Test odnowienia (dry-run)
+    log "Testuję mechanizm odnowienia (dry-run)..."
+    certbot renew --dry-run --quiet \
+      && success "Dry-run odnowienia: OK" \
+      || log "Dry-run nie powiódł się — sprawdź logi: journalctl -u certbot"
+
+    # Reload Nginx po certbot (certbot może zmienić konfig)
+    nginx -t && systemctl reload nginx
+    success "Nginx przeładowany z konfiguracją HTTPS"
+
+  else
+    log "Pominięto Let's Encrypt (brak domeny)"
+    log "Aby dodać SSL później: certbot --nginx -d twoja-domena.pl --email admin@firma.pl"
   fi
+
 else
+  # Nie root — zapisz konfig do pliku, żeby admin mógł skopiować ręcznie
   log "Pomijam konfigurację Nginx (wymagany root)"
-  log "Konfiguracja zapisana: Sprawdź scripts/nginx-timesheet.conf"
-  # Zapisz konfig do pliku na później
-  cat > "$ROOT_DIR/scripts/nginx-timesheet.conf" <<NGINX
-server {
-    listen 80;
-    server_name ${NGINX_SERVER_NAME};
-    root ${ROOT_DIR}/frontend/dist;
-    index index.html;
-    location / { try_files \$uri \$uri/ /index.html; }
-    location /api/ {
-        proxy_pass http://127.0.0.1:3001;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-    }
-    gzip on;
-    gzip_types text/plain text/css application/javascript application/json;
-}
-NGINX
+  CONF_OUT="$ROOT_DIR/scripts/nginx-timesheet.conf"
+  write_nginx_http_conf
+  # Nadpisz plik wyjściowy (nie /etc/nginx)
+  NGINX_CONF="$CONF_OUT"
+  write_nginx_http_conf
+  success "Konfig Nginx zapisany: scripts/nginx-timesheet.conf"
+  echo ""
+  echo -e "  Skopiuj ręcznie jako root:"
+  echo -e "  ${CYAN}sudo cp scripts/nginx-timesheet.conf /etc/nginx/sites-available/timesheet${RESET}"
+  echo -e "  ${CYAN}sudo ln -sf /etc/nginx/sites-enabled/timesheet /etc/nginx/sites-available/timesheet${RESET}"
+  echo -e "  ${CYAN}sudo nginx -t && sudo systemctl reload nginx${RESET}"
+  [[ -n "$DOMAIN" ]] && \
+  echo -e "  ${CYAN}sudo certbot --nginx -d $DOMAIN --email $SSL_EMAIL --redirect --non-interactive --agree-tos${RESET}"
 fi
 
 # ─── Podsumowanie ─────────────────────────────────────────────────────────────
@@ -251,7 +319,7 @@ echo -e "${BOLD}${GREEN}══════════════════�
 echo -e "${BOLD}${GREEN}  Deploy zakończony!${RESET}"
 echo -e "${BOLD}${GREEN}════════════════════════════════════════════════════${RESET}"
 echo ""
-[[ -n "$DOMAIN" ]] && echo -e "  ${BOLD}URL:${RESET}    https://$DOMAIN"
+[[ -n "${DOMAIN:-}" ]] && echo -e "  ${BOLD}URL:${RESET}    https://$DOMAIN"
 echo -e "  ${BOLD}Status PM2:${RESET}"
 pm2 status timesheet-api || true
 echo ""
