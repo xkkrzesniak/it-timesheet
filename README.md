@@ -4,7 +4,7 @@ Stack: **React + Vite + TypeScript + Tailwind CSS** | **Fastify + Prisma + Postg
 
 ---
 
-## Uruchomienie lokalne (etap 1)
+## Uruchomienie lokalne
 
 ### 1. Baza danych
 ```bash
@@ -15,12 +15,12 @@ docker-compose up -d postgres
 ```bash
 cd backend
 cp .env.example .env
-# Uzupełnij AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, JWT_SECRET
+# Uzupełnij: AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, JWT_SECRET
 
 npm install
 npm run db:generate        # generuje Prisma Client
-npm run db:migrate         # tworzy tabele w bazie
-npm run db:seed            # dane testowe
+npm run db:migrate         # tworzy tabele
+npm run db:seed            # dane testowe (admin + 2 userów + 2 klientów)
 npm run dev                # http://localhost:3001
 ```
 
@@ -28,6 +28,16 @@ Weryfikacja:
 ```bash
 curl http://localhost:3001/api/health
 # {"status":"ok","ts":"..."}
+```
+
+### 3. Frontend
+```bash
+cd frontend
+cp .env.example .env
+# Uzupełnij: VITE_AZURE_CLIENT_ID, VITE_AZURE_TENANT_ID
+
+npm install
+npm run dev                # http://localhost:5173
 ```
 
 ---
@@ -39,12 +49,28 @@ User.hourlyRate      → snapshotUserRate   → costValue    (widoczne: USER + A
 Client.hourlyRate    → snapshotClientRate → revenueValue (widoczne: ADMIN only)
 ```
 
-Middleware `selectByRole.ts` — **jedyne miejsce** decydujące o widoczności pól.
-Frontend **nigdy** nie dostaje `clientRate` ani `revenueValue` przy roli USER.
+- `selectByRole.ts` — **jedyne miejsce** decydujące o widoczności pól w Prisma select
+- Frontend **nigdy** nie dostaje `snapshotClientRate` ani `revenueValue` przy roli USER
+- `adminGuard` middleware chroni wszystkie trasy `/api/admin/*`
+- USER widzi wyłącznie własne wpisy (`WHERE userId = caller.sub`)
 
 ---
 
-## API Endpoints (Etap 1)
+## Widoki
+
+| Ścieżka | Rola | Opis |
+|---------|------|------|
+| `/login` | — | Logowanie przez Microsoft Entra ID (MSAL popup) |
+| `/track` | USER+ADMIN | Timer live + ręczny wpis czasu |
+| `/history` | USER+ADMIN | Historia wpisów z filtrowaniem, edycją, usuwaniem |
+| `/reports` | USER+ADMIN | Raporty z KPI; ADMIN widzi przychód/marżę |
+| `/admin/timesheets` | ADMIN | Wszystkie wpisy zespołu z pełnymi danymi finansowymi |
+| `/admin/users` | ADMIN | Edycja stawek wewnętrznych i ról |
+| `/admin/clients` | ADMIN | Zarządzanie klientami i stawkami sprzedażowymi |
+
+---
+
+## API Endpoints
 
 | Method | Path | Opis | Rola |
 |--------|------|------|------|
@@ -68,9 +94,6 @@ Frontend **nigdy** nie dostaje `clientRate` ani `revenueValue` przy roli USER.
 
 ---
 
-## Następne etapy
+## Następny etap
 
-- **Etap 2**: Frontend React + Vite + Tailwind + MSAL (login Entra ID, /track z timerem)
-- **Etap 3**: Widoki /history, /reports z tabelami zależnymi od roli
-- **Etap 4**: Panel /admin (users, clients, timesheets)
-- **Etap 5**: Nginx + PM2 + deployment VPS
+- **Etap 5**: Nginx + PM2 + deployment VPS (konfiguracja produkcyjna)
