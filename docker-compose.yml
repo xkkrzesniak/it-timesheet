@@ -1,0 +1,31 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: timesheet-postgres
+    environment:
+      POSTGRES_USER: timesheet
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: timesheet_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  # Opcjonalnie: pgAdmin dla wygodnego podglądu bazy
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: timesheet-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@lemonpro.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

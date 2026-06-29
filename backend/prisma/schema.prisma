@@ -1,0 +1,103 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  USER
+}
+
+// ─── Users ────────────────────────────────────────────────────────────────────
+
+model User {
+  id         String   @id @default(cuid())
+  email      String   @unique
+  name       String
+  role       Role     @default(USER)
+  // Stawka wewnętrzna — widoczna dla samego usera i ADMINA
+  hourlyRate Decimal  @default(0) @db.Decimal(10, 2)
+  // Azure Entra ID object id — unikalny identyfikator z tokena
+  azureOid   String?  @unique
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  timeEntries TimeEntry[]
+
+  @@map("users")
+}
+
+// ─── Clients ──────────────────────────────────────────────────────────────────
+
+model Client {
+  id       String  @id @default(cuid())
+  name     String
+  // Stawka sprzedażowa — WYŁĄCZNIE widoczna dla ADMINA
+  // Backend nigdy nie zwraca tego pola do roli USER
+  hourlyRate Decimal  @default(0) @db.Decimal(10, 2)
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  projects Project[]
+
+  @@map("clients")
+}
+
+// ─── Projects ─────────────────────────────────────────────────────────────────
+
+model Project {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+  clientId    String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  client      Client      @relation(fields: [clientId], references: [id])
+  timeEntries TimeEntry[]
+
+  @@map("projects")
+}
+
+// ─── Time Entries ─────────────────────────────────────────────────────────────
+
+model TimeEntry {
+  id          String   @id @default(cuid())
+  userId      String
+  projectId   String
+  description String?
+  date        DateTime @db.Date
+
+  // Czas — timer lub ręczny wpis
+  startTime DateTime?
+  endTime   DateTime?
+  // Zawsze zapisywane (obliczane z start/end lub podane ręcznie)
+  minutes   Int
+
+  // SNAPSHOT STAWEK W MOMENCIE ZAPISU — krytyczna funkcja
+  // Dzięki temu zmiany stawek nie modyfikują historycznych danych finansowych
+  snapshotUserRate   Decimal @db.Decimal(10, 2)
+  snapshotClientRate Decimal @db.Decimal(10, 2)
+
+  // Pola obliczeniowe — przechowywane dla wydajności raportów
+  costValue    Decimal @db.Decimal(10, 2) // minutes/60 × snapshotUserRate
+  revenueValue Decimal @db.Decimal(10, 2) // minutes/60 × snapshotClientRate
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id])
+  project Project @relation(fields: [projectId], references: [id])
+
+  @@index([userId, date])
+  @@index([projectId, date])
+  @@index([date])
+  @@map("time_entries")
+}
