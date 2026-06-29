@@ -6,17 +6,26 @@ Stack: **React + Vite + TypeScript + Tailwind CSS** | **Fastify + Prisma + Postg
 
 ## Uruchomienie lokalne
 
-### 1. Baza danych
+### 1. Skonfiguruj Azure App Registration automatycznie
+
+Skrypt loguje się do Entra ID, tworzy App Registration, generuje secret i zapisuje wszystko do `.env`:
+
+```bash
+bash scripts/setup-azure-app.sh
+```
+
+Wymaga [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli):
+- macOS: `brew install azure-cli`
+- Ubuntu/VPS: `curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash`
+
+### 2. Baza danych
 ```bash
 docker-compose up -d postgres
 ```
 
-### 2. Backend
+### 3. Backend
 ```bash
 cd backend
-cp .env.example .env
-# Uzupełnij: AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, JWT_SECRET
-
 npm install
 npm run db:generate        # generuje Prisma Client
 npm run db:migrate         # tworzy tabele
@@ -30,12 +39,9 @@ curl http://localhost:3001/api/health
 # {"status":"ok","ts":"..."}
 ```
 
-### 3. Frontend
+### 4. Frontend
 ```bash
 cd frontend
-cp .env.example .env
-# Uzupełnij: VITE_AZURE_CLIENT_ID, VITE_AZURE_TENANT_ID
-
 npm install
 npm run dev                # http://localhost:5173
 ```
@@ -94,6 +100,24 @@ Client.hourlyRate    → snapshotClientRate → revenueValue (widoczne: ADMIN on
 
 ---
 
-## Następny etap
+## Deployment na VPS
 
-- **Etap 5**: Nginx + PM2 + deployment VPS (konfiguracja produkcyjna)
+```bash
+# Pełny deploy (instalacja zależności + build + PM2 + Nginx + SSL)
+sudo bash scripts/deploy.sh
+
+# Skrypt sam wykryje brak .env i zaproponuje setup Azure
+```
+
+### Rotacja Client Secret (co 12 miesięcy)
+```bash
+bash scripts/rotate-secret.sh
+```
+
+### Skrypty
+
+| Skrypt | Opis |
+|--------|------|
+| `scripts/setup-azure-app.sh` | Tworzy App Registration w Entra ID, zapisuje do `.env` |
+| `scripts/deploy.sh` | Pełny deploy: build + PM2 + Nginx + SSL |
+| `scripts/rotate-secret.sh` | Odnawia Client Secret bez rekreowania aplikacji |
