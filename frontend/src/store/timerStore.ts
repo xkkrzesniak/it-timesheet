@@ -2,21 +2,24 @@ import { create } from 'zustand'
 
 interface TimerState {
   running: boolean
-  startedAt: number | null   // Date.now() timestamp
+  startedAt: number | null
+  clientId: string | null
   projectId: string | null
   description: string
-  elapsedMs: number          // aktualizowany co sekundę przez hook
+  elapsedMs: number
 
   start: (projectId: string, description?: string) => void
   stop: () => { minutes: number; startTime: Date; endTime: Date } | null
   setElapsed: (ms: number) => void
   setDescription: (d: string) => void
+  setClientId: (id: string) => void
   setProjectId: (id: string) => void
 }
 
 export const useTimerStore = create<TimerState>((set, get) => ({
   running: false,
   startedAt: null,
+  clientId: null,
   projectId: null,
   description: '',
   elapsedMs: 0,
@@ -39,5 +42,6 @@ export const useTimerStore = create<TimerState>((set, get) => ({
 
   setElapsed: (ms) => set({ elapsedMs: ms }),
   setDescription: (description) => set({ description }),
+  setClientId: (clientId) => set({ clientId }),
   setProjectId: (projectId) => set({ projectId }),
 }))

@@ -49,16 +49,22 @@ model Client {
   @@map("clients")
 }
 
+enum BillingType {
+  HOURLY // praca na godzinę
+  FIXED  // ryczałt / projekt opłacony z góry
+}
+
 // ─── Projects ─────────────────────────────────────────────────────────────────
 
 model Project {
-  id          String  @id @default(cuid())
+  id          String      @id @default(cuid())
   name        String
   description String?
   clientId    String
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  billingType BillingType @default(HOURLY)
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 
   client      Client      @relation(fields: [clientId], references: [id])
   timeEntries TimeEntry[]

@@ -10,6 +10,7 @@ import { Reports } from './pages/Reports'
 import { AdminUsers } from './pages/admin/Users'
 import { AdminClients } from './pages/admin/Clients'
 import { AdminTimesheets } from './pages/admin/Timesheets'
+import { AdminProjects } from './pages/admin/Projects'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -57,6 +58,10 @@ export default function App() {
             <Route
               path="/admin/clients"
               element={<RequireAdmin><AdminClients /></RequireAdmin>}
+            />
+            <Route
+              path="/admin/projects"
+              element={<RequireAdmin><AdminProjects /></RequireAdmin>}
             />
           </Route>
           <Route path="*" element={<Navigate to="/track" replace />} />

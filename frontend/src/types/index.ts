@@ -17,12 +17,16 @@ export interface Client {
   createdAt?: string
 }
 
+export type BillingType = 'HOURLY' | 'FIXED'
+
 export interface Project {
   id: string
   name: string
   description?: string
+  billingType: BillingType
   isActive: boolean
   client: Pick<Client, 'id' | 'name'>
+  createdAt?: string
 }
 
 export interface TimeEntry {
