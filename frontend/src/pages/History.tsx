@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
 import { format, subDays } from 'date-fns'
 import { timeEntriesApi } from '@/api/timeEntries'
 import { adminApi } from '@/api/admin'
@@ -11,12 +12,19 @@ import type { TimeEntry } from '@/types'
 
 export function History() {
   const qc = useQueryClient()
+  const navigate = useNavigate()
 
   const [from, setFrom] = useState(format(subDays(new Date(), 30), 'yyyy-MM-dd'))
   const [to, setTo] = useState(format(new Date(), 'yyyy-MM-dd'))
+  const [clientId, setClientId] = useState('')
   const [projectId, setProjectId] = useState('')
   const [page, setPage] = useState(1)
   const [editEntry, setEditEntry] = useState<TimeEntry | null>(null)
+
+  const { data: clients = [] } = useQuery({
+    queryKey: ['clients'],
+    queryFn: () => adminApi.getClients(),
+  })
 
   const { data: projects = [] } = useQuery({
     queryKey: ['projects'],
@@ -40,10 +48,31 @@ export function History() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['time-entries'] }),
   })
 
-  const projectOptions = projects.map((p) => ({
+  const clientOptions = clients.map((c) => ({ value: c.id, label: c.name }))
+
+  const projectsForFilter = clientId
+    ? projects.filter((p) => p.client.id === clientId)
+    : projects
+
+  const projectOptions = projectsForFilter.map((p) => ({
     value: p.id,
-    label: `${p.client.name} / ${p.name}`,
+    label: clientId ? p.name : `${p.client.name} / ${p.name}`,
   }))
+
+  const handleRepeat = (e: TimeEntry) => {
+    navigate('/track', {
+      state: {
+        clientId: e.project.client.id,
+        projectId: e.project.id,
+        description: e.description ?? '',
+      },
+    })
+  }
+
+  const handleDelete = (e: TimeEntry) => {
+    if (!confirm(`Usunąć wpis z ${e.date.slice(0, 10)} (${(e.minutes / 60).toFixed(2)} h)?`)) return
+    deleteMut.mutate(e.id)
+  }
 
   const totalMinutes = data?.items.reduce((s, e) => s + e.minutes, 0) ?? 0
   const totalCost = data?.items.reduce((s, e) => s + Number(e.costValue), 0) ?? 0
@@ -69,13 +98,35 @@ export function History() {
           className="w-40"
         />
         <Select
+          label="Klient"
+          options={clientOptions}
+          placeholder="Wszyscy klienci"
+          value={clientId}
+          onChange={(e) => {
+            setClientId(e.target.value)
+            setProjectId('')
+            setPage(1)
+          }}
+          className="w-44"
+        />
+        <Select
           label="Projekt"
           options={projectOptions}
           placeholder="Wszystkie projekty"
           value={projectId}
           onChange={(e) => { setProjectId(e.target.value); setPage(1) }}
-          className="w-56"
+          className="w-52"
         />
+        {(clientId || projectId) && (
+          <div className="flex items-end">
+            <button
+              onClick={() => { setClientId(''); setProjectId(''); setPage(1) }}
+              className="text-xs text-text-muted hover:text-danger transition-colors pb-2"
+            >
+              Wyczyść filtry
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Podsumowanie */}
@@ -113,21 +164,28 @@ export function History() {
             )}
             {data?.items.map((e) => (
               <tr key={e.id} className="border-b border-border/50 hover:bg-bg-hover transition-colors">
-                <td className="px-4 py-3 text-text-secondary">{e.date.slice(0, 10)}</td>
+                <td className="px-4 py-3 text-text-secondary whitespace-nowrap">{e.date.slice(0, 10)}</td>
                 <td className="px-4 py-3">
                   <span className="text-text-muted text-xs">{e.project.client.name}</span>
                   <br />
                   <span className="text-text-primary font-medium">{e.project.name}</span>
                 </td>
                 <td className="px-4 py-3 text-text-secondary max-w-xs truncate">{e.description ?? '—'}</td>
-                <td className="px-4 py-3 text-right text-accent font-semibold font-mono">
+                <td className="px-4 py-3 text-right text-accent font-semibold font-mono whitespace-nowrap">
                   {(e.minutes / 60).toFixed(2)} h
                 </td>
-                <td className="px-4 py-3 text-right text-text-primary">
+                <td className="px-4 py-3 text-right text-text-primary whitespace-nowrap">
                   {Number(e.costValue).toFixed(2)} zł
                 </td>
                 <td className="px-4 py-3 text-right">
-                  <div className="flex gap-2 justify-end">
+                  <div className="flex gap-3 justify-end">
+                    <button
+                      onClick={() => handleRepeat(e)}
+                      className="text-xs text-text-muted hover:text-success transition-colors"
+                      title="Powtórz wpis"
+                    >
+                      Powtórz
+                    </button>
                     <button
                       onClick={() => setEditEntry(e)}
                       className="text-xs text-text-muted hover:text-accent transition-colors"
@@ -135,7 +193,7 @@ export function History() {
                       Edytuj
                     </button>
                     <button
-                      onClick={() => deleteMut.mutate(e.id)}
+                      onClick={() => handleDelete(e)}
                       className="text-xs text-text-muted hover:text-danger transition-colors"
                     >
                       Usuń
@@ -212,38 +270,73 @@ function EditModal({
   onClose: () => void
   onSaved: () => void
 }) {
-  const [minutes, setMinutes] = useState(String(entry.minutes))
+  const totalMinutes = entry.minutes
+  const [hours, setHours] = useState(String(Math.floor(totalMinutes / 60)))
+  const [minutes, setMinutes] = useState(String(totalMinutes % 60))
   const [description, setDescription] = useState(entry.description ?? '')
   const [date, setDate] = useState(entry.date.slice(0, 10))
 
   const update = useMutation({
-    mutationFn: () =>
-      timeEntriesApi.update(entry.id, {
-        minutes: parseInt(minutes),
+    mutationFn: () => {
+      const total = parseInt(hours || '0') * 60 + parseInt(minutes || '0')
+      return timeEntriesApi.update(entry.id, {
+        minutes: total,
         description: description || undefined,
         date,
-      }),
+      })
+    },
     onSuccess: onSaved,
   })
+
+  const totalMins = parseInt(hours || '0') * 60 + parseInt(minutes || '0')
 
   return (
     <Modal open title="Edytuj wpis" onClose={onClose}>
       <div className="flex flex-col gap-4">
+        <div className="bg-bg-hover rounded-lg px-4 py-2 text-xs text-text-muted">
+          <span className="font-medium text-text-secondary">{entry.project.client.name} / {entry.project.name}</span>
+        </div>
         <Input label="Data" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-        <Input
-          label="Minuty"
-          type="number"
-          value={minutes}
-          onChange={(e) => setMinutes(e.target.value)}
-        />
+        <div className="grid grid-cols-2 gap-3">
+          <Input
+            label="Godziny"
+            type="number"
+            min="0"
+            max="24"
+            placeholder="0"
+            value={hours}
+            onChange={(e) => setHours(e.target.value)}
+          />
+          <Input
+            label="Minuty"
+            type="number"
+            min="0"
+            max="59"
+            placeholder="0"
+            value={minutes}
+            onChange={(e) => setMinutes(e.target.value)}
+          />
+        </div>
+        {totalMins > 0 && (
+          <p className="text-xs text-text-muted -mt-2">
+            Razem: {(totalMins / 60).toFixed(2)} h
+          </p>
+        )}
         <Input
           label="Opis"
+          placeholder="Opis wykonanej pracy..."
           value={description}
           onChange={(e) => setDescription(e.target.value)}
         />
         <div className="flex gap-3 justify-end">
           <Button variant="secondary" onClick={onClose}>Anuluj</Button>
-          <Button onClick={() => update.mutate()} loading={update.isPending}>Zapisz</Button>
+          <Button
+            onClick={() => update.mutate()}
+            loading={update.isPending}
+            disabled={totalMins <= 0}
+          >
+            Zapisz
+          </Button>
         </div>
       </div>
     </Modal>

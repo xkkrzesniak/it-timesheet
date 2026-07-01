@@ -61,8 +61,9 @@ model Project {
   name        String
   description String?
   clientId    String
-  billingType BillingType @default(HOURLY)
-  isActive    Boolean     @default(true)
+  billingType  BillingType @default(HOURLY)
+  hoursBudget  Int?
+  isActive     Boolean     @default(true)
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 

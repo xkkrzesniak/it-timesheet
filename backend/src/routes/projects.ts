@@ -8,6 +8,7 @@ const CreateSchema = z.object({
   clientId: z.string().cuid(),
   description: z.string().optional(),
   billingType: BillingTypeEnum.default('HOURLY'),
+  hoursBudget: z.number().int().positive().optional(),
 })
 
 const UpdateSchema = z.object({
@@ -15,6 +16,7 @@ const UpdateSchema = z.object({
   description: z.string().optional(),
   billingType: BillingTypeEnum.optional(),
   isActive: z.boolean().optional(),
+  hoursBudget: z.number().int().positive().nullable().optional(),
 })
 
 const projectSelect = {
@@ -22,6 +24,7 @@ const projectSelect = {
   name: true,
   description: true,
   billingType: true,
+  hoursBudget: true,
   isActive: true,
   client: { select: { id: true, name: true } },
   createdAt: true,

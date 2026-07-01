@@ -24,9 +24,19 @@ export interface Project {
   name: string
   description?: string
   billingType: BillingType
+  hoursBudget?: number | null
   isActive: boolean
   client: Pick<Client, 'id' | 'name'>
   createdAt?: string
+}
+
+export interface DashboardStats {
+  thisWeek: { hours: number; cost: number }
+  lastWeek: { hours: number; cost: number }
+  thisMonth: { hours: number; cost: number }
+  lastMonth: { hours: number; cost: number }
+  topClients: { name: string; hours: number; cost: number }[]
+  topProjects: { name: string; clientName: string; hours: number }[]
 }
 
 export interface TimeEntry {

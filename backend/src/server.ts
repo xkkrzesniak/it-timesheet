@@ -10,6 +10,7 @@ import { reportsRoutes } from './routes/reports.js'
 import { adminRoutes } from './routes/admin.js'
 import { clientsRoutes } from './routes/clients.js'
 import { projectsRoutes } from './routes/projects.js'
+import { dashboardRoutes } from './routes/dashboard.js'
 
 const app = Fastify({
   logger: {
@@ -39,6 +40,7 @@ await app.register(reportsRoutes, { prefix: '/api/reports' })
 await app.register(clientsRoutes, { prefix: '/api/clients' })
 await app.register(projectsRoutes, { prefix: '/api/projects' })
 await app.register(adminRoutes, { prefix: '/api/admin' })
+await app.register(dashboardRoutes, { prefix: '/api/dashboard' })
 
 app.get('/api/health', async () => ({ status: 'ok', ts: new Date().toISOString() }))
 

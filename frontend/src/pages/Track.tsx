@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useLocation } from 'react-router-dom'
 import { format } from 'date-fns'
 import { pl } from 'date-fns/locale'
 import clsx from 'clsx'
@@ -12,9 +13,13 @@ import { Select } from '@/components/ui/Select'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 
+type Prefill = { clientId?: string; projectId?: string; description?: string }
+
 export function Track() {
   const qc = useQueryClient()
   const timer = useTimer()
+  const location = useLocation()
+  const prefill = (location.state as Prefill | null) ?? null
   const [mode, setMode] = useState<'timer' | 'manual'>('timer')
 
   const [manualForm, setManualForm] = useState({
@@ -25,6 +30,23 @@ export function Track() {
     minutes: '',
     description: '',
   })
+
+  // Apply prefill from "Powtórz" in History
+  useEffect(() => {
+    if (!prefill) return
+    if (prefill.clientId) {
+      timer.setClientId(prefill.clientId)
+      if (prefill.projectId) timer.setProjectId(prefill.projectId)
+      if (prefill.description) timer.setDescription(prefill.description)
+    }
+    setManualForm((f) => ({
+      ...f,
+      clientId: prefill.clientId ?? f.clientId,
+      projectId: prefill.projectId ?? f.projectId,
+      description: prefill.description ?? f.description,
+    }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const { data: clients = [] } = useQuery({
     queryKey: ['clients'],
@@ -159,10 +181,13 @@ export function Track() {
           {timer.projectId && (() => {
             const proj = allProjects.find((p) => p.id === timer.projectId)
             return proj ? (
-              <div className="flex items-center gap-2 text-xs text-text-muted">
+              <div className="flex items-center gap-2 text-xs text-text-muted flex-wrap">
                 <Badge variant={proj.billingType === 'FIXED' ? 'success' : 'accent'}>
                   {proj.billingType === 'FIXED' ? 'Ryczałt' : 'Godzinowe'}
                 </Badge>
+                {proj.hoursBudget && (
+                  <Badge variant="warning">Budżet: {proj.hoursBudget} h</Badge>
+                )}
                 {proj.description && <span>{proj.description}</span>}
               </div>
             ) : null
@@ -214,10 +239,13 @@ export function Track() {
           {manualForm.projectId && (() => {
             const proj = allProjects.find((p) => p.id === manualForm.projectId)
             return proj ? (
-              <div className="flex items-center gap-2 text-xs text-text-muted">
+              <div className="flex items-center gap-2 text-xs text-text-muted flex-wrap">
                 <Badge variant={proj.billingType === 'FIXED' ? 'success' : 'accent'}>
                   {proj.billingType === 'FIXED' ? 'Ryczałt' : 'Godzinowe'}
                 </Badge>
+                {proj.hoursBudget && (
+                  <Badge variant="warning">Budżet: {proj.hoursBudget} h</Badge>
+                )}
                 {proj.description && <span>{proj.description}</span>}
               </div>
             ) : null

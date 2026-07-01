@@ -20,9 +20,9 @@ export const adminApi = {
   // Projects
   getProjects: (clientId?: string) =>
     api.get<Project[]>('/projects', { params: clientId ? { clientId } : {} }).then((r) => r.data),
-  createProject: (dto: { name: string; clientId: string; description?: string; billingType?: string }) =>
+  createProject: (dto: { name: string; clientId: string; description?: string; billingType?: string; hoursBudget?: number }) =>
     api.post<Project>('/projects', dto).then((r) => r.data),
-  updateProject: (id: string, dto: { name?: string; description?: string; billingType?: string; isActive?: boolean }) =>
+  updateProject: (id: string, dto: { name?: string; description?: string; billingType?: string; isActive?: boolean; hoursBudget?: number | null }) =>
     api.patch<Project>(`/projects/${id}`, dto).then((r) => r.data),
   deleteProject: (id: string) =>
     api.delete(`/projects/${id}`),

@@ -81,9 +81,14 @@ export function AdminProjects() {
                 <td className="px-4 py-3 font-medium text-text-primary">{p.name}</td>
                 <td className="px-4 py-3 text-text-secondary">{p.client.name}</td>
                 <td className="px-4 py-3">
-                  <Badge variant={p.billingType === 'HOURLY' ? 'accent' : 'success'}>
-                    {BILLING_LABELS[p.billingType]}
-                  </Badge>
+                  <div className="flex flex-col gap-1">
+                    <Badge variant={p.billingType === 'HOURLY' ? 'accent' : 'success'}>
+                      {BILLING_LABELS[p.billingType]}
+                    </Badge>
+                    {p.hoursBudget && (
+                      <span className="text-xs text-text-muted">{p.hoursBudget} h</span>
+                    )}
+                  </div>
                 </td>
                 <td className="px-4 py-3 text-text-muted max-w-xs truncate">{p.description || '—'}</td>
                 <td className="px-4 py-3">
@@ -155,6 +160,7 @@ function ProjectModal({
   const [clientId, setClientId] = useState(project?.client.id ?? '')
   const [billingType, setBillingType] = useState<BillingType>(project?.billingType ?? 'HOURLY')
   const [description, setDescription] = useState(project?.description ?? '')
+  const [hoursBudget, setHoursBudget] = useState(project?.hoursBudget ? String(project.hoursBudget) : '')
 
   const clientOptions = clients.map((c) => ({ value: c.id, label: c.name }))
   const billingOptions = [
@@ -163,10 +169,23 @@ function ProjectModal({
   ]
 
   const mut = useMutation({
-    mutationFn: () =>
-      project
-        ? adminApi.updateProject(project.id, { name, billingType, description: description || undefined })
-        : adminApi.createProject({ name, clientId, billingType, description: description || undefined }),
+    mutationFn: () => {
+      const budget = hoursBudget ? parseInt(hoursBudget) : undefined
+      return project
+        ? adminApi.updateProject(project.id, {
+            name,
+            billingType,
+            description: description || undefined,
+            hoursBudget: budget ?? null,
+          })
+        : adminApi.createProject({
+            name,
+            clientId,
+            billingType,
+            description: description || undefined,
+            hoursBudget: budget,
+          })
+    },
     onSuccess: onSaved,
   })
 
@@ -197,6 +216,14 @@ function ProjectModal({
           options={billingOptions}
           value={billingType}
           onChange={(e) => setBillingType(e.target.value as BillingType)}
+        />
+        <Input
+          label="Budżet godzinowy (opcjonalny)"
+          type="number"
+          min="1"
+          placeholder="np. 100"
+          value={hoursBudget}
+          onChange={(e) => setHoursBudget(e.target.value)}
         />
         <Input
           label="Opis (opcjonalny)"

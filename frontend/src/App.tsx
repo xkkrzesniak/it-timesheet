@@ -11,6 +11,7 @@ import { AdminUsers } from './pages/admin/Users'
 import { AdminClients } from './pages/admin/Clients'
 import { AdminTimesheets } from './pages/admin/Timesheets'
 import { AdminProjects } from './pages/admin/Projects'
+import { Dashboard } from './pages/Dashboard'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -43,7 +44,8 @@ export default function App() {
               </RequireAuth>
             }
           >
-            <Route index element={<Navigate to="/track" replace />} />
+            <Route index element={<Navigate to="/dashboard" replace />} />
+            <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/track" element={<Track />} />
             <Route path="/history" element={<History />} />
             <Route path="/reports" element={<Reports />} />
@@ -64,7 +66,7 @@ export default function App() {
               element={<RequireAdmin><AdminProjects /></RequireAdmin>}
             />
           </Route>
-          <Route path="*" element={<Navigate to="/track" replace />} />
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </BrowserRouter>
       <ReactQueryDevtools initialIsOpen={false} />
