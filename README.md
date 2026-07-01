@@ -118,6 +118,11 @@ bash scripts/rotate-secret.sh
 
 | Skrypt | Opis |
 |--------|------|
-| `scripts/setup-azure-app.sh` | Tworzy App Registration w Entra ID, zapisuje do `.env` |
-| `scripts/deploy.sh` | Pełny deploy: build + PM2 + Nginx + SSL |
-| `scripts/rotate-secret.sh` | Odnawia Client Secret bez rekreowania aplikacji |
+| `scripts/setup-azure-app.sh` | Tworzy App Registration w Entra ID, zapisuje Tenant ID + Client ID do `.env` |
+| `scripts/deploy.sh` | Pełny deploy: build + PM2 + Nginx + SSL (Let's Encrypt) |
+
+> **Dlaczego brak Client Secret?**
+> Backend weryfikuje tokeny Azure przez **JWKS** (publiczne klucze RSA Microsoft dostępne pod
+> `login.microsoftonline.com/{tenant}/discovery/v2.0/keys`). Client secret byłby potrzebny
+> tylko gdyby backend samodzielnie wywoływał Microsoft Graph API. W tej architekturze
+> robi to frontend (MSAL), a backend jedynie waliduje otrzymany token.
