@@ -116,13 +116,19 @@ fi
 header "Krok 3 — Build aplikacji"
 echo ""
 
-log "Backend — npm install..."
+log "Backend — npm install (z devDependencies do kompilacji TypeScript)..."
 cd "$ROOT_DIR/backend"
-npm install --omit=dev
+npm install
 npm run db:generate
 
+log "Backend — kompilacja TypeScript..."
+npm run build
+
+log "Backend — usuwam devDependencies po buildzie..."
+npm prune --omit=dev
+
 log "Backend — migracje..."
-npm run db:deploy
+npx prisma db push --accept-data-loss
 
 log "Frontend — npm install i build..."
 cd "$ROOT_DIR/frontend"
