@@ -96,10 +96,10 @@ log "Tworzę aplikację: ${BOLD}$APP_NAME${RESET}"
 header "Krok 3/4 — Tworzenie App Registration"
 echo ""
 
-# Redirect URIs dla SPA (Single Page Application — MSAL popup)
-REDIRECT_URIS='["http://localhost:5173"]'
+# Redirect URIs dla SPA — MSAL popup wymaga /blank.html
+REDIRECT_URIS='["http://localhost:5173/blank.html", "http://localhost:5173"]'
 if [[ -n "$PROD_URL" ]]; then
-  REDIRECT_URIS="[\"http://localhost:5173\", \"${PROD_URL}\"]"
+  REDIRECT_URIS="[\"http://localhost:5173/blank.html\", \"http://localhost:5173\", \"${PROD_URL}/blank.html\", \"${PROD_URL}\"]"
 fi
 
 log "Tworzę App Registration..."
