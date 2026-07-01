@@ -118,7 +118,7 @@ echo ""
 
 log "Backend — npm install..."
 cd "$ROOT_DIR/backend"
-npm ci --omit=dev
+npm install --omit=dev
 npm run db:generate
 
 log "Backend — migracje..."
@@ -126,7 +126,7 @@ npm run db:deploy
 
 log "Frontend — npm install i build..."
 cd "$ROOT_DIR/frontend"
-npm ci
+npm install
 npm run build
 
 success "Build zakończony"
