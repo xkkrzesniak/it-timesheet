@@ -160,7 +160,7 @@ export function Track() {
             const proj = allProjects.find((p) => p.id === timer.projectId)
             return proj ? (
               <div className="flex items-center gap-2 text-xs text-text-muted">
-                <Badge variant={proj.billingType === 'FIXED' ? 'success' : 'info'}>
+                <Badge variant={proj.billingType === 'FIXED' ? 'success' : 'accent'}>
                   {proj.billingType === 'FIXED' ? 'Ryczałt' : 'Godzinowe'}
                 </Badge>
                 {proj.description && <span>{proj.description}</span>}
@@ -215,7 +215,7 @@ export function Track() {
             const proj = allProjects.find((p) => p.id === manualForm.projectId)
             return proj ? (
               <div className="flex items-center gap-2 text-xs text-text-muted">
-                <Badge variant={proj.billingType === 'FIXED' ? 'success' : 'info'}>
+                <Badge variant={proj.billingType === 'FIXED' ? 'success' : 'accent'}>
                   {proj.billingType === 'FIXED' ? 'Ryczałt' : 'Godzinowe'}
                 </Badge>
                 {proj.description && <span>{proj.description}</span>}

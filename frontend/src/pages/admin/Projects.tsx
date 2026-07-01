@@ -81,7 +81,7 @@ export function AdminProjects() {
                 <td className="px-4 py-3 font-medium text-text-primary">{p.name}</td>
                 <td className="px-4 py-3 text-text-secondary">{p.client.name}</td>
                 <td className="px-4 py-3">
-                  <Badge variant={p.billingType === 'HOURLY' ? 'info' : 'success'}>
+                  <Badge variant={p.billingType === 'HOURLY' ? 'accent' : 'success'}>
                     {BILLING_LABELS[p.billingType]}
                   </Badge>
                 </td>
