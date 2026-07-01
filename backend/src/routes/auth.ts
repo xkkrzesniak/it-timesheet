@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
-import * as jwt from 'jsonwebtoken'
+import jwt, { type JwtPayload as JwtPayloadJWT } from 'jsonwebtoken'
 import jwksClient from 'jwks-rsa'
 import { Role } from '@prisma/client'
 import type { JwtPayload } from '../plugins/auth.js'
@@ -57,7 +57,7 @@ export async function authRoutes(app: FastifyInstance) {
       const payload = jwt.verify(azureToken, publicKey, {
         audience: process.env.AZURE_CLIENT_ID,
         issuer: `https://login.microsoftonline.com/${process.env.AZURE_TENANT_ID}/v2.0`,
-      }) as jwt.JwtPayload
+      }) as JwtPayloadJWT
 
       const azureOid = payload.oid as string
       const email = (payload.preferred_username ?? payload.email ?? '') as string
