@@ -6,6 +6,7 @@ export interface User {
   email: string
   role: Role
   hourlyRate?: number
+  isActive?: boolean
 }
 
 export interface Client {

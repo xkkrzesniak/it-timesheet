@@ -3,7 +3,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format, subDays } from 'date-fns'
 import { timeEntriesApi } from '@/api/timeEntries'
 import { adminApi } from '@/api/admin'
-import { useAuthStore } from '@/store/authStore'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
@@ -11,7 +10,6 @@ import { Modal } from '@/components/ui/Modal'
 import type { TimeEntry } from '@/types'
 
 export function History() {
-  const { user } = useAuthStore()
   const qc = useQueryClient()
 
   const [from, setFrom] = useState(format(subDays(new Date(), 30), 'yyyy-MM-dd'))
@@ -185,7 +183,6 @@ export function History() {
       {editEntry && (
         <EditModal
           entry={editEntry}
-          projectOptions={projectOptions}
           onClose={() => setEditEntry(null)}
           onSaved={() => {
             setEditEntry(null)
@@ -208,12 +205,10 @@ function SummaryTile({ label, value, accent }: { label: string; value: string; a
 
 function EditModal({
   entry,
-  projectOptions,
   onClose,
   onSaved,
 }: {
   entry: TimeEntry
-  projectOptions: { value: string; label: string }[]
   onClose: () => void
   onSaved: () => void
 }) {

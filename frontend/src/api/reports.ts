@@ -14,12 +14,17 @@ export const reportsApi = {
     api.get<ReportSummary>('/reports/summary', { params }).then((r) => r.data),
 
   exportCsv: (params: ReportParams) => {
-    const qs = new URLSearchParams(params as Record<string, string>).toString()
+    const qs = buildQs(params)
     window.open(`/api/reports/export/csv?${qs}`, '_blank')
   },
 
   exportPdf: (params: ReportParams) => {
-    const qs = new URLSearchParams(params as Record<string, string>).toString()
+    const qs = buildQs(params)
     window.open(`/api/reports/export/pdf?${qs}`, '_blank')
   },
+}
+
+function buildQs(params: ReportParams): string {
+  const entries = Object.entries(params).filter(([, v]) => v !== undefined) as [string, string][]
+  return new URLSearchParams(entries).toString()
 }

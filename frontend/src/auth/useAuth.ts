@@ -14,7 +14,7 @@ export function useAuth() {
       const azureToken = result.idToken
 
       // Wymień token Azure na własny JWT
-      const { data } = await api.post<{ token: string; user: typeof user }>('/auth/azure', {
+      const { data } = await api.post<{ token: string; user: NonNullable<typeof user> }>('/auth/azure', {
         azureToken,
       })
       setAuth(data.token, data.user)
