@@ -57,7 +57,7 @@ export function timeEntrySelectForRole(role: Role) {
  * Filtr WHERE dla TimeEntry.
  * USER widzi tylko własne wpisy.
  */
-export function timeEntryWhereForUser(caller: JwtPayload, overrideUserId?: string) {
+export function timeEntryWhereForUser(caller: Pick<JwtPayload, 'sub' | 'role'>, overrideUserId?: string) {
   if (caller.role === Role.ADMIN) {
     return overrideUserId ? { userId: overrideUserId } : {}
   }

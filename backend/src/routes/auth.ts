@@ -48,6 +48,9 @@ export async function authRoutes(app: FastifyInstance) {
       }
 
       const kid = decoded.header.kid
+      if (!kid) {
+        return reply.code(401).send({ error: 'Invalid token: missing kid' })
+      }
       const client = getJwksClient()
       const publicKey = await getSigningKey(client, kid)
 
