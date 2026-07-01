@@ -11,6 +11,7 @@ import { AdminUsers } from './pages/admin/Users'
 import { AdminClients } from './pages/admin/Clients'
 import { AdminTimesheets } from './pages/admin/Timesheets'
 import { AdminProjects } from './pages/admin/Projects'
+import { AdminTags } from './pages/admin/Tags'
 import { Dashboard } from './pages/Dashboard'
 
 const queryClient = new QueryClient({
@@ -64,6 +65,10 @@ export default function App() {
             <Route
               path="/admin/projects"
               element={<RequireAdmin><AdminProjects /></RequireAdmin>}
+            />
+            <Route
+              path="/admin/tags"
+              element={<RequireAdmin><AdminTags /></RequireAdmin>}
             />
           </Route>
           <Route path="*" element={<Navigate to="/dashboard" replace />} />

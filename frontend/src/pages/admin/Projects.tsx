@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Modal } from '@/components/ui/Modal'
 import { Badge } from '@/components/ui/Badge'
-import type { Project, BillingType } from '@/types'
+import type { Project, BillingType, ProjectNote } from '@/types'
 
 const BILLING_LABELS: Record<BillingType, string> = {
   HOURLY: 'Godzinowe',
@@ -16,10 +16,8 @@ const BILLING_LABELS: Record<BillingType, string> = {
 export function AdminProjects() {
   const qc = useQueryClient()
   const [filterClient, setFilterClient] = useState('')
-  const [modal, setModal] = useState<{ open: boolean; project: Project | null }>({
-    open: false,
-    project: null,
-  })
+  const [modal, setModal] = useState<{ open: boolean; project: Project | null }>({ open: false, project: null })
+  const [notesProject, setNotesProject] = useState<Project | null>(null)
 
   const { data: projects = [], isLoading } = useQuery({
     queryKey: ['projects-admin', filterClient],
@@ -99,6 +97,12 @@ export function AdminProjects() {
                 <td className="px-4 py-3 text-right">
                   <div className="flex gap-2 justify-end">
                     <button
+                      onClick={() => setNotesProject(p)}
+                      className="text-xs text-text-muted hover:text-success transition-colors"
+                    >
+                      Notatki
+                    </button>
+                    <button
                       onClick={() => setModal({ open: true, project: p })}
                       className="text-xs text-text-muted hover:text-accent transition-colors"
                     >
@@ -141,7 +145,83 @@ export function AdminProjects() {
           }}
         />
       )}
+      {notesProject && (
+        <NotesModal
+          project={notesProject}
+          onClose={() => setNotesProject(null)}
+        />
+      )}
     </div>
+  )
+}
+
+function NotesModal({ project, onClose }: { project: Project; onClose: () => void }) {
+  const qc = useQueryClient()
+  const [content, setContent] = useState('')
+
+  const { data: notes = [], isLoading } = useQuery({
+    queryKey: ['project-notes', project.id],
+    queryFn: () => adminApi.getProjectNotes(project.id),
+  })
+
+  const addNote = useMutation({
+    mutationFn: () => adminApi.createProjectNote(project.id, content),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['project-notes', project.id] })
+      setContent('')
+    },
+  })
+
+  const deleteNote = useMutation({
+    mutationFn: (noteId: string) => adminApi.deleteProjectNote(project.id, noteId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['project-notes', project.id] }),
+  })
+
+  return (
+    <Modal open title={`Notatki: ${project.name}`} onClose={onClose}>
+      <div className="flex flex-col gap-4">
+        <div className="flex gap-2">
+          <textarea
+            className="flex-1 bg-bg-input border border-border rounded-lg px-3 py-2 text-text-primary text-sm placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent resize-none"
+            rows={2}
+            placeholder="Dodaj notatkę..."
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+          />
+          <Button
+            size="sm"
+            onClick={() => addNote.mutate()}
+            loading={addNote.isPending}
+            disabled={!content.trim()}
+          >
+            Dodaj
+          </Button>
+        </div>
+
+        {isLoading && <p className="text-text-muted text-sm text-center py-4">Ładowanie...</p>}
+        {!isLoading && !notes.length && (
+          <p className="text-text-muted text-sm text-center py-4">Brak notatek dla tego projektu.</p>
+        )}
+        <div className="space-y-3 max-h-80 overflow-y-auto">
+          {notes.map((n: ProjectNote) => (
+            <div key={n.id} className="bg-bg-hover rounded-lg px-4 py-3">
+              <div className="flex items-start justify-between gap-3">
+                <p className="text-sm text-text-primary whitespace-pre-wrap flex-1">{n.content}</p>
+                <button
+                  onClick={() => deleteNote.mutate(n.id)}
+                  className="text-text-muted hover:text-danger transition-colors text-xs shrink-0"
+                >
+                  ✕
+                </button>
+              </div>
+              <p className="text-xs text-text-muted mt-1.5">
+                {n.user.name} · {new Date(n.createdAt).toLocaleString('pl')}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </Modal>
   )
 }
 

@@ -8,6 +8,7 @@ export interface CreateTimeEntryDto {
   description?: string
   startTime?: string
   endTime?: string
+  tagId?: string | null
 }
 
 export const timeEntriesApi = {

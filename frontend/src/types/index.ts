@@ -7,6 +7,20 @@ export interface User {
   role: Role
   hourlyRate?: number
   isActive?: boolean
+  weeklyGoalHours?: number | null
+  monthlyGoalHours?: number | null
+}
+
+export interface Tag {
+  id: string
+  name: string
+  color: string
+}
+
+export interface UserProjectRate {
+  id: string
+  hourlyRate: number
+  project: { id: string; name: string; client: { name: string } }
 }
 
 export interface Client {
@@ -37,6 +51,8 @@ export interface DashboardStats {
   lastMonth: { hours: number; cost: number }
   topClients: { name: string; hours: number; cost: number }[]
   topProjects: { name: string; clientName: string; hours: number }[]
+  weeklyGoalHours: number | null
+  monthlyGoalHours: number | null
 }
 
 export interface TimeEntry {
@@ -50,6 +66,8 @@ export interface TimeEntry {
   endTime?: string
   snapshotUserRate: number
   costValue: number
+  tagId?: string | null
+  tag?: Tag | null
   // ADMIN only
   snapshotClientRate?: number
   revenueValue?: number
@@ -60,6 +78,13 @@ export interface TimeEntry {
     client: Pick<Client, 'id' | 'name'>
   }
   createdAt: string
+}
+
+export interface ProjectNote {
+  id: string
+  content: string
+  createdAt: string
+  user: Pick<User, 'id' | 'name'>
 }
 
 export interface ReportSummary {

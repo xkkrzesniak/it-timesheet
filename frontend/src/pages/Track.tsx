@@ -7,11 +7,13 @@ import clsx from 'clsx'
 import { useTimer } from '@/hooks/useTimer'
 import { timeEntriesApi } from '@/api/timeEntries'
 import { adminApi } from '@/api/admin'
+import { tagsApi } from '@/api/tags'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
+import { TagBadge } from '@/pages/admin/Tags'
 
 type Prefill = { clientId?: string; projectId?: string; description?: string }
 
@@ -29,7 +31,9 @@ export function Track() {
     hours: '',
     minutes: '',
     description: '',
+    tagId: '',
   })
+  const [timerTagId, setTimerTagId] = useState('')
 
   // Apply prefill from "Powtórz" in History
   useEffect(() => {
@@ -56,6 +60,26 @@ export function Track() {
   const { data: allProjects = [] } = useQuery({
     queryKey: ['projects'],
     queryFn: () => adminApi.getProjects(),
+  })
+
+  const { data: tags = [] } = useQuery({
+    queryKey: ['tags'],
+    queryFn: tagsApi.getAll,
+  })
+
+  const activeTimerProject = allProjects.find((p) => p.id === timer.projectId)
+  const activeManualProject = allProjects.find((p) => p.id === manualForm.projectId)
+
+  const { data: timerProjectStats } = useQuery({
+    queryKey: ['project-stats', timer.projectId],
+    queryFn: () => adminApi.getProjectStats(timer.projectId!),
+    enabled: !!timer.projectId && !!activeTimerProject?.hoursBudget,
+  })
+
+  const { data: manualProjectStats } = useQuery({
+    queryKey: ['project-stats', manualForm.projectId],
+    queryFn: () => adminApi.getProjectStats(manualForm.projectId),
+    enabled: !!manualForm.projectId && !!activeManualProject?.hoursBudget,
   })
 
   const save = useMutation({
@@ -87,6 +111,7 @@ export function Track() {
         description: timer.description || undefined,
         startTime: result.startTime.toISOString(),
         endTime: result.endTime.toISOString(),
+        tagId: timerTagId || undefined,
       })
     } else {
       if (!timer.projectId) return
@@ -103,8 +128,9 @@ export function Track() {
       date: manualForm.date,
       minutes: totalMinutes,
       description: manualForm.description || undefined,
+      tagId: manualForm.tagId || undefined,
     })
-    setManualForm((f) => ({ ...f, projectId: '', hours: '', minutes: '', description: '' }))
+    setManualForm((f) => ({ ...f, projectId: '', hours: '', minutes: '', description: '', tagId: '' }))
   }
 
   const { data: recent } = useQuery({
@@ -178,20 +204,42 @@ export function Track() {
             />
           </div>
 
-          {timer.projectId && (() => {
-            const proj = allProjects.find((p) => p.id === timer.projectId)
-            return proj ? (
+          {timer.projectId && activeTimerProject && (
+            <div className="flex flex-col gap-2">
               <div className="flex items-center gap-2 text-xs text-text-muted flex-wrap">
-                <Badge variant={proj.billingType === 'FIXED' ? 'success' : 'accent'}>
-                  {proj.billingType === 'FIXED' ? 'Ryczałt' : 'Godzinowe'}
+                <Badge variant={activeTimerProject.billingType === 'FIXED' ? 'success' : 'accent'}>
+                  {activeTimerProject.billingType === 'FIXED' ? 'Ryczałt' : 'Godzinowe'}
                 </Badge>
-                {proj.hoursBudget && (
-                  <Badge variant="warning">Budżet: {proj.hoursBudget} h</Badge>
-                )}
-                {proj.description && <span>{proj.description}</span>}
+                {activeTimerProject.description && <span>{activeTimerProject.description}</span>}
               </div>
-            ) : null
-          })()}
+              {timerProjectStats && timerProjectStats.hoursBudget && (
+                <BudgetBar used={timerProjectStats.usedHours} budget={timerProjectStats.hoursBudget} />
+              )}
+            </div>
+          )}
+
+          {tags.length > 0 && (
+            <div>
+              <p className="text-sm text-text-secondary font-medium mb-2">Kategoria (opcjonalna)</p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => setTimerTagId('')}
+                  className={clsx('text-xs px-3 py-1 rounded-full border transition-colors',
+                    !timerTagId ? 'border-accent text-accent' : 'border-border text-text-muted hover:border-text-muted'
+                  )}
+                >
+                  Bez kategorii
+                </button>
+                {tags.map((t) => (
+                  <button key={t.id} onClick={() => setTimerTagId(t.id)}>
+                    <span className={clsx(timerTagId === t.id ? 'ring-2 ring-offset-1 ring-offset-bg-card rounded-full' : '')}>
+                      <TagBadge tag={t} />
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="flex flex-col gap-1">
             <label className="text-sm text-text-secondary font-medium">Opis (opcjonalny)</label>
@@ -236,20 +284,42 @@ export function Track() {
             />
           </div>
 
-          {manualForm.projectId && (() => {
-            const proj = allProjects.find((p) => p.id === manualForm.projectId)
-            return proj ? (
+          {manualForm.projectId && activeManualProject && (
+            <div className="flex flex-col gap-2">
               <div className="flex items-center gap-2 text-xs text-text-muted flex-wrap">
-                <Badge variant={proj.billingType === 'FIXED' ? 'success' : 'accent'}>
-                  {proj.billingType === 'FIXED' ? 'Ryczałt' : 'Godzinowe'}
+                <Badge variant={activeManualProject.billingType === 'FIXED' ? 'success' : 'accent'}>
+                  {activeManualProject.billingType === 'FIXED' ? 'Ryczałt' : 'Godzinowe'}
                 </Badge>
-                {proj.hoursBudget && (
-                  <Badge variant="warning">Budżet: {proj.hoursBudget} h</Badge>
-                )}
-                {proj.description && <span>{proj.description}</span>}
+                {activeManualProject.description && <span>{activeManualProject.description}</span>}
               </div>
-            ) : null
-          })()}
+              {manualProjectStats && manualProjectStats.hoursBudget && (
+                <BudgetBar used={manualProjectStats.usedHours} budget={manualProjectStats.hoursBudget} />
+              )}
+            </div>
+          )}
+
+          {tags.length > 0 && (
+            <div>
+              <p className="text-sm text-text-secondary font-medium mb-2">Kategoria (opcjonalna)</p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => setManualForm((f) => ({ ...f, tagId: '' }))}
+                  className={clsx('text-xs px-3 py-1 rounded-full border transition-colors',
+                    !manualForm.tagId ? 'border-accent text-accent' : 'border-border text-text-muted hover:border-text-muted'
+                  )}
+                >
+                  Bez kategorii
+                </button>
+                {tags.map((t) => (
+                  <button key={t.id} onClick={() => setManualForm((f) => ({ ...f, tagId: t.id }))}>
+                    <span className={clsx(manualForm.tagId === t.id ? 'ring-2 ring-offset-1 ring-offset-bg-card rounded-full' : '')}>
+                      <TagBadge tag={t} />
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           <Input
             label="Data"
@@ -309,6 +379,28 @@ export function Track() {
   )
 }
 
+function BudgetBar({ used, budget }: { used: number; budget: number }) {
+  const pct = Math.min((used / budget) * 100, 100)
+  const remaining = Math.max(budget - used, 0)
+  const danger = pct >= 90
+  return (
+    <div>
+      <div className="flex justify-between text-xs mb-1">
+        <span className="text-text-muted">Budżet projektu</span>
+        <span className={danger ? 'text-danger font-semibold' : 'text-text-muted'}>
+          {remaining.toFixed(1)} h pozostało z {budget} h
+        </span>
+      </div>
+      <div className="h-1.5 bg-bg-hover rounded-full overflow-hidden">
+        <div
+          className={`h-full rounded-full transition-all ${danger ? 'bg-danger' : 'bg-accent'}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  )
+}
+
 function EntryRow({ entry }: { entry: import('@/types').TimeEntry }) {
   return (
     <div className="flex items-center justify-between py-3 px-4 bg-bg-card border border-border rounded-lg hover:border-accent/30 transition-colors">
@@ -321,6 +413,7 @@ function EntryRow({ entry }: { entry: import('@/types').TimeEntry }) {
           {entry.description && (
             <p className="text-xs text-text-secondary mt-0.5">{entry.description}</p>
           )}
+          {entry.tag && <TagBadge tag={entry.tag} />}
         </div>
       </div>
       <div className="text-right shrink-0 ml-4">

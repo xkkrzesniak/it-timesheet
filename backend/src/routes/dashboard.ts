@@ -21,7 +21,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
     const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
     const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0)
 
-    const [thisWeekAgg, lastWeekAgg, thisMonthAgg, lastMonthAgg, monthEntries] =
+    const [thisWeekAgg, lastWeekAgg, thisMonthAgg, lastMonthAgg, monthEntries, userGoals] =
       await Promise.all([
         app.prisma.timeEntry.aggregate({
           where: { ...userFilter, date: { gte: thisWeekStart } },
@@ -52,6 +52,10 @@ export async function dashboardRoutes(app: FastifyInstance) {
               },
             },
           },
+        }),
+        app.prisma.user.findUnique({
+          where: { id: caller.sub },
+          select: { weeklyGoalHours: true, monthlyGoalHours: true },
         }),
       ])
 
@@ -109,6 +113,8 @@ export async function dashboardRoutes(app: FastifyInstance) {
       },
       topClients,
       topProjects,
+      weeklyGoalHours: userGoals?.weeklyGoalHours ?? null,
+      monthlyGoalHours: userGoals?.monthlyGoalHours ?? null,
     }
   })
 }

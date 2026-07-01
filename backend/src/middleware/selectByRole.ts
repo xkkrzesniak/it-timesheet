@@ -28,7 +28,6 @@ export function timeEntrySelectForRole(role: Role) {
           select: {
             id: true,
             name: true,
-            // hourlyRate klienta — NIGDY dla USER
           },
         },
       },
@@ -39,6 +38,9 @@ export function timeEntrySelectForRole(role: Role) {
         name: true,
         email: true,
       },
+    },
+    tag: {
+      select: { id: true, name: true, color: true },
     },
   }
 

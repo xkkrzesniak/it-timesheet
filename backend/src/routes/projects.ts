@@ -62,6 +62,20 @@ export async function projectsRoutes(app: FastifyInstance) {
     }
   })
 
+  // GET /projects/:id/stats — godziny zużyte vs budżet
+  app.get('/:id/stats', auth, async (request) => {
+    const { id } = request.params as { id: string }
+    const [project, aggregate] = await Promise.all([
+      app.prisma.project.findUnique({ where: { id }, select: { hoursBudget: true } }),
+      app.prisma.timeEntry.aggregate({
+        where: { projectId: id },
+        _sum: { minutes: true },
+      }),
+    ])
+    const usedHours = parseFloat(((aggregate._sum.minutes ?? 0) / 60).toFixed(2))
+    return { hoursBudget: project?.hoursBudget ?? null, usedHours }
+  })
+
   // DELETE /projects/:id — soft delete (admin)
   app.delete('/:id', adminAuth, async (request, reply) => {
     const { id } = request.params as { id: string }

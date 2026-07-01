@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Modal } from '@/components/ui/Modal'
 import { Badge } from '@/components/ui/Badge'
-import type { User } from '@/types'
+import type { User, UserProjectRate } from '@/types'
 
 export function AdminUsers() {
   const qc = useQueryClient()
@@ -114,9 +114,24 @@ function EditUserModal({
   onClose: () => void
   onSaved: () => void
 }) {
+  const qc = useQueryClient()
   const [name, setName] = useState(user.name)
   const [role, setRole] = useState(user.role)
   const [hourlyRate, setHourlyRate] = useState(String(user.hourlyRate ?? 0))
+  const [weeklyGoal, setWeeklyGoal] = useState(user.weeklyGoalHours ? String(user.weeklyGoalHours) : '')
+  const [monthlyGoal, setMonthlyGoal] = useState(user.monthlyGoalHours ? String(user.monthlyGoalHours) : '')
+  const [newProjectId, setNewProjectId] = useState('')
+  const [newRate, setNewRate] = useState('')
+
+  const { data: rates = [] } = useQuery({
+    queryKey: ['user-project-rates', user.id],
+    queryFn: () => adminApi.getUserProjectRates(user.id),
+  })
+
+  const { data: projects = [] } = useQuery({
+    queryKey: ['projects'],
+    queryFn: () => adminApi.getProjects(),
+  })
 
   const update = useMutation({
     mutationFn: () =>
@@ -124,38 +139,123 @@ function EditUserModal({
         name,
         role,
         hourlyRate: parseFloat(hourlyRate),
+        weeklyGoalHours: weeklyGoal ? parseInt(weeklyGoal) : null,
+        monthlyGoalHours: monthlyGoal ? parseInt(monthlyGoal) : null,
       }),
     onSuccess: onSaved,
   })
 
+  const addRate = useMutation({
+    mutationFn: () =>
+      adminApi.upsertProjectRate({ userId: user.id, projectId: newProjectId, hourlyRate: parseFloat(newRate) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['user-project-rates', user.id] })
+      setNewProjectId('')
+      setNewRate('')
+    },
+  })
+
+  const deleteRate = useMutation({
+    mutationFn: adminApi.deleteProjectRate,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['user-project-rates', user.id] }),
+  })
+
+  const existingProjectIds = new Set(rates.map((r: UserProjectRate) => r.project.id))
+  const availableProjects = projects
+    .filter((p) => !existingProjectIds.has(p.id))
+    .map((p) => ({ value: p.id, label: `${p.client.name} / ${p.name}` }))
+
   return (
     <Modal open title={`Edytuj: ${user.name}`} onClose={onClose}>
-      <div className="flex flex-col gap-4">
-        <Input
-          label="Imię i nazwisko"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
+      <div className="flex flex-col gap-5">
+        {/* Dane podstawowe */}
+        <Input label="Imię i nazwisko" value={name} onChange={(e) => setName(e.target.value)} />
         <Select
           label="Rola"
-          options={[
-            { value: 'USER', label: 'USER' },
-            { value: 'ADMIN', label: 'ADMIN' },
-          ]}
+          options={[{ value: 'USER', label: 'USER' }, { value: 'ADMIN', label: 'ADMIN' }]}
           value={role}
           onChange={(e) => setRole(e.target.value as User['role'])}
         />
         <Input
-          label="Stawka wewnętrzna (zł/h)"
-          type="number"
-          min="0"
-          step="0.01"
+          label="Stawka globalna (zł/h)"
+          type="number" min="0" step="0.01"
           value={hourlyRate}
           onChange={(e) => setHourlyRate(e.target.value)}
         />
-        <p className="text-xs text-text-muted">
-          Stawka wewnętrzna to koszt dla firmy. Widoczna dla użytkownika i ADMINA.
-        </p>
+
+        {/* Cele */}
+        <div className="border-t border-border pt-4">
+          <p className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">Cele godzinowe</p>
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              label="Cel tygodniowy (h)"
+              type="number" min="1" placeholder="np. 40"
+              value={weeklyGoal}
+              onChange={(e) => setWeeklyGoal(e.target.value)}
+            />
+            <Input
+              label="Cel miesięczny (h)"
+              type="number" min="1" placeholder="np. 160"
+              value={monthlyGoal}
+              onChange={(e) => setMonthlyGoal(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {/* Stawki projektowe */}
+        <div className="border-t border-border pt-4">
+          <p className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">Stawki projektowe</p>
+          {rates.length > 0 && (
+            <div className="space-y-2 mb-3">
+              {rates.map((r: UserProjectRate) => (
+                <div key={r.id} className="flex items-center justify-between text-xs bg-bg-hover rounded-lg px-3 py-2">
+                  <span className="text-text-secondary">
+                    <span className="text-text-muted">{r.project.client.name} /</span> {r.project.name}
+                  </span>
+                  <div className="flex items-center gap-3">
+                    <span className="font-mono font-semibold text-accent">{Number(r.hourlyRate).toFixed(2)} zł/h</span>
+                    <button
+                      onClick={() => deleteRate.mutate(r.id)}
+                      className="text-text-muted hover:text-danger transition-colors"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {availableProjects.length > 0 && (
+            <div className="flex gap-2">
+              <Select
+                label=""
+                options={availableProjects}
+                placeholder="Wybierz projekt..."
+                value={newProjectId}
+                onChange={(e) => setNewProjectId(e.target.value)}
+                className="flex-1"
+              />
+              <Input
+                label=""
+                type="number" min="0" step="0.01" placeholder="zł/h"
+                value={newRate}
+                onChange={(e) => setNewRate(e.target.value)}
+                className="w-24"
+              />
+              <div className="flex items-end">
+                <Button
+                  size="sm"
+                  onClick={() => addRate.mutate()}
+                  loading={addRate.isPending}
+                  disabled={!newProjectId || !newRate}
+                >
+                  Dodaj
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+
         <div className="flex gap-3 justify-end pt-2">
           <Button variant="secondary" onClick={onClose}>Anuluj</Button>
           <Button onClick={() => update.mutate()} loading={update.isPending}>Zapisz</Button>

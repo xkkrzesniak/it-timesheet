@@ -65,6 +65,26 @@ export function Dashboard() {
         )}
       </div>
 
+      {/* Cele godzinowe */}
+      {(data?.weeklyGoalHours || data?.monthlyGoalHours) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+          {data.weeklyGoalHours && (
+            <GoalCard
+              label="Cel tygodniowy"
+              current={data.thisWeek.hours}
+              goal={data.weeklyGoalHours}
+            />
+          )}
+          {data.monthlyGoalHours && (
+            <GoalCard
+              label="Cel miesięczny"
+              current={data.thisMonth.hours}
+              goal={data.monthlyGoalHours}
+            />
+          )}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Top klienci */}
         <div className="bg-bg-card border border-border rounded-xl p-5">
@@ -151,6 +171,34 @@ function StatCard({
         )}
         {sub && <span className="text-xs text-text-muted">{sub}</span>}
       </div>
+    </div>
+  )
+}
+
+function GoalCard({ label, current, goal }: { label: string; current: number; goal: number }) {
+  const pct = Math.min((current / goal) * 100, 100)
+  const remaining = Math.max(goal - current, 0)
+  const done = pct >= 100
+
+  return (
+    <div className="bg-bg-card border border-border rounded-xl p-5">
+      <div className="flex justify-between items-start mb-3">
+        <p className="text-xs font-semibold text-text-muted uppercase tracking-wider">{label}</p>
+        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${done ? 'bg-green-900/30 text-green-400' : 'bg-bg-hover text-text-muted'}`}>
+          {done ? '✓ Osiągnięty' : `${remaining} h pozostało`}
+        </span>
+      </div>
+      <div className="flex items-end gap-1 mb-2">
+        <span className="text-2xl font-bold text-text-primary">{current}</span>
+        <span className="text-text-muted text-sm mb-0.5">/ {goal} h</span>
+      </div>
+      <div className="h-2 bg-bg-hover rounded-full overflow-hidden">
+        <div
+          className={`h-full rounded-full transition-all ${done ? 'bg-success' : 'bg-accent'}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <p className="text-xs text-text-muted mt-1.5 text-right">{pct.toFixed(0)}%</p>
     </div>
   )
 }
