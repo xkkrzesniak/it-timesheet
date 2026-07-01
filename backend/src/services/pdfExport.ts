@@ -1,5 +1,10 @@
 import PDFDocument from 'pdfkit'
+import path from 'path'
+import { fileURLToPath } from 'url'
 import type { JwtPayload } from '../plugins/auth.js'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const FONTS_DIR = path.join(__dirname, '../../assets/fonts')
 
 type Entry = {
   date: Date
@@ -28,15 +33,19 @@ export async function generatePdf(
     doc.on('end', () => resolve(Buffer.concat(chunks)))
     doc.on('error', reject)
 
+    // Register fonts with full Unicode / Polish support
+    doc.registerFont('Regular', path.join(FONTS_DIR, 'DejaVuSans.ttf'))
+    doc.registerFont('Bold', path.join(FONTS_DIR, 'DejaVuSans-Bold.ttf'))
+
     const ORANGE = '#F47C20'
     const BG = '#1A1A1A'
     const WHITE = '#FFFFFF'
 
     // Header
     doc.rect(0, 0, doc.page.width, 60).fill(BG)
-    doc.fillColor(ORANGE).fontSize(20).font('Helvetica-Bold')
+    doc.fillColor(ORANGE).fontSize(20).font('Bold')
       .text('IT Timesheet', 40, 18)
-    doc.fillColor(WHITE).fontSize(10).font('Helvetica')
+    doc.fillColor(WHITE).fontSize(10).font('Regular')
       .text(`Raport: ${from} — ${to}`, 40, 44)
     doc.moveDown(3)
 
@@ -53,7 +62,7 @@ export async function generatePdf(
     let y = 75
 
     // Nagłówki tabeli
-    doc.fillColor(ORANGE).fontSize(8).font('Helvetica-Bold')
+    doc.fillColor(ORANGE).fontSize(8).font('Bold')
     let x = startX
     cols.forEach((col, i) => {
       doc.text(col, x, y, { width: colWidths[i], align: 'left' })
@@ -64,7 +73,7 @@ export async function generatePdf(
     y += 16
 
     // Wiersze
-    doc.fillColor('#333333').fontSize(7).font('Helvetica')
+    doc.fillColor('#333333').fontSize(7).font('Regular')
     let totalMinutes = 0, totalCost = 0, totalRevenue = 0
 
     for (const e of entries) {
@@ -104,8 +113,10 @@ export async function generatePdf(
     // Podsumowanie
     doc.moveTo(startX, y + 4).lineTo(doc.page.width - 40, y + 4).stroke(ORANGE)
     y += 10
-    doc.fillColor(BG).fontSize(9).font('Helvetica-Bold')
-    doc.text(`Razem: ${parseFloat((totalMinutes / 60).toFixed(2))} h | Koszt: ${totalCost.toFixed(2)} zł${isAdmin ? ` | Przychód: ${totalRevenue.toFixed(2)} zł | Marża: ${(totalRevenue - totalCost).toFixed(2)} zł` : ''}`, startX, y)
+    doc.fillColor(BG).fontSize(9).font('Bold')
+    const summary = `Razem: ${parseFloat((totalMinutes / 60).toFixed(2))} h | Koszt: ${totalCost.toFixed(2)} zł` +
+      (isAdmin ? ` | Przychód: ${totalRevenue.toFixed(2)} zł | Marża: ${(totalRevenue - totalCost).toFixed(2)} zł` : '')
+    doc.text(summary, startX, y)
 
     doc.end()
   })
