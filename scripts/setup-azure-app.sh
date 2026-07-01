@@ -77,10 +77,16 @@ success "Tenant ID: $TENANT_ID"
 header "Krok 2/4 — Konfiguracja aplikacji"
 echo ""
 
+read -rp "  Nazwa Twojej organizacji/firmy (np. Powerity sp. z o.o.): " ORG_NAME
+ORG_NAME="${ORG_NAME:-}"
+if [[ -z "$ORG_NAME" ]]; then
+  error "Nazwa organizacji jest wymagana."
+fi
+
 read -rp "  Nazwa aplikacji w Entra ID [IT-Timesheet]: " APP_NAME
 APP_NAME="${APP_NAME:-IT-Timesheet}"
 
-read -rp "  Produkcyjny URL frontendu (np. https://ts.lemonpro.com) [pomiń=tylko localhost]: " PROD_URL
+read -rp "  Produkcyjny URL frontendu (np. https://ts.powerity.pl) [pomiń=tylko localhost]: " PROD_URL
 PROD_URL="${PROD_URL:-}"
 
 echo ""
@@ -163,6 +169,7 @@ cat > "$FRONTEND_ENV" <<EOF
 VITE_AZURE_CLIENT_ID=${APP_ID}
 VITE_AZURE_TENANT_ID=${TENANT_ID}
 VITE_API_URL=http://localhost:3001
+VITE_ORG_NAME=${ORG_NAME}
 EOF
 
 success "backend/.env zapisany"
@@ -174,6 +181,7 @@ echo -e "${BOLD}${GREEN}══════════════════�
 echo -e "${BOLD}${GREEN}  Gotowe! App Registration skonfigurowane.${RESET}"
 echo -e "${BOLD}${GREEN}════════════════════════════════════════════════════${RESET}"
 echo ""
+echo -e "  ${BOLD}Organizacja:${RESET} $ORG_NAME"
 echo -e "  ${BOLD}Aplikacja:${RESET}  $APP_NAME"
 echo -e "  ${BOLD}Client ID:${RESET}  $APP_ID"
 echo -e "  ${BOLD}Tenant ID:${RESET}  $TENANT_ID"

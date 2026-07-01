@@ -23,7 +23,7 @@ export function Sidebar() {
       {/* Logo */}
       <div className="px-6 py-5 border-b border-border">
         <span className="text-accent font-bold text-xl tracking-tight">IT Timesheet</span>
-        <span className="block text-xs text-text-muted mt-0.5">Lemon Pro</span>
+        <span className="block text-xs text-text-muted mt-0.5">{import.meta.env.VITE_ORG_NAME}</span>
       </div>
 
       {/* Nav */}

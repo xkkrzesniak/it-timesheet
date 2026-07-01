@@ -38,7 +38,7 @@ export function Login() {
             </svg>
           </div>
           <h1 className="text-2xl font-bold text-text-primary">IT Timesheet</h1>
-          <p className="text-text-muted text-sm mt-1">Lemon Pro sp. z o.o.</p>
+          <p className="text-text-muted text-sm mt-1">{import.meta.env.VITE_ORG_NAME}</p>
         </div>
 
         {/* Card */}
@@ -70,7 +70,7 @@ export function Login() {
           </Button>
 
           <p className="text-xs text-text-muted text-center mt-6">
-            Logowanie wyłącznie dla pracowników Lemon Pro.<br />
+            Logowanie wyłącznie dla pracowników {import.meta.env.VITE_ORG_NAME}.<br />
             Wymagane konto w domenie firmowej.
           </p>
         </div>
