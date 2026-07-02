@@ -27,8 +27,27 @@ export interface Client {
   id: string
   name: string
   isActive: boolean
-  hourlyRate?: number  // tylko ADMIN
+  hourlyRate?: number       // tylko ADMIN
+  fakturowniaId?: string | null  // tylko ADMIN
   createdAt?: string
+}
+
+export interface FakturowniaKontrahent {
+  id: string
+  name: string
+  email: string
+  nip: string
+}
+
+export interface InvoicePreview {
+  client: { name: string; fakturowniaId: string | null }
+  positions: { name: string; hours: number; priceNet: number; totalNet: number }[]
+  totalNet: number
+  vat: number
+  totalGross: number
+  rate: number
+  issueDate: string
+  sellDate: string
 }
 
 export type BillingType = 'HOURLY' | 'FIXED'

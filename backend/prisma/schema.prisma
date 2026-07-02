@@ -41,14 +41,26 @@ model Client {
   name     String
   // Stawka sprzedażowa — WYŁĄCZNIE widoczna dla ADMINA
   // Backend nigdy nie zwraca tego pola do roli USER
-  hourlyRate Decimal  @default(0) @db.Decimal(10, 2)
-  isActive   Boolean  @default(true)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  hourlyRate        Decimal  @default(0) @db.Decimal(10, 2)
+  isActive          Boolean  @default(true)
+  fakturowniaId     String?  // ID kontrahenta w Fakturownia.pl
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   projects Project[]
 
   @@map("clients")
+}
+
+// ─── Fakturownia Integration ───────────────────────────────────────────────────
+
+model FakturowniaConfig {
+  id        String   @id @default("fakturownia")
+  domain    String   // subdomena np. "powerity" → powerity.fakturownia.pl
+  apiToken  String
+  updatedAt DateTime @updatedAt
+
+  @@map("fakturownia_config")
 }
 
 enum BillingType {

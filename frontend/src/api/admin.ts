@@ -23,7 +23,7 @@ export const adminApi = {
   getClients: () => api.get<Client[]>('/clients').then((r) => r.data),
   createClient: (dto: { name: string; hourlyRate: number }) =>
     api.post<Client>('/clients', dto).then((r) => r.data),
-  updateClient: (id: string, dto: { name?: string; hourlyRate?: number }) =>
+  updateClient: (id: string, dto: { name?: string; hourlyRate?: number; fakturowniaId?: string | null }) =>
     api.patch<Client>(`/clients/${id}`, dto).then((r) => r.data),
 
   // Projects

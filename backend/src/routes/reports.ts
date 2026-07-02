@@ -9,6 +9,7 @@ const ReportQuerySchema = z.object({
   from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   projectId: z.string().optional(),
+  clientId: z.string().optional(), // ADMIN może filtrować po kliencie
   userId: z.string().optional(), // ADMIN może filtrować po userze
   groupBy: z.enum(['day', 'project', 'user']).default('day'),
 })
@@ -26,6 +27,7 @@ export async function reportsRoutes(app: FastifyInstance) {
       ...timeEntryWhereForUser(caller, isAdmin ? q.userId : undefined),
       date: { gte: new Date(q.from), lte: new Date(q.to) },
       ...(q.projectId ? { projectId: q.projectId } : {}),
+      ...(isAdmin && q.clientId ? { project: { clientId: q.clientId } } : {}),
     }
 
     const entries = await app.prisma.timeEntry.findMany({
@@ -141,6 +143,7 @@ async function fetchReportEntries(
     ...timeEntryWhereForUser(caller, isAdmin ? q.userId : undefined),
     date: { gte: new Date(q.from), lte: new Date(q.to) },
     ...(q.projectId ? { projectId: q.projectId } : {}),
+    ...(isAdmin && q.clientId ? { project: { clientId: q.clientId } } : {}),
   }
 
   return app.prisma.timeEntry.findMany({

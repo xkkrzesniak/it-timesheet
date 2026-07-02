@@ -12,6 +12,7 @@ import { AdminClients } from './pages/admin/Clients'
 import { AdminTimesheets } from './pages/admin/Timesheets'
 import { AdminProjects } from './pages/admin/Projects'
 import { AdminTags } from './pages/admin/Tags'
+import { FakturowniaSettings } from './pages/admin/FakturowniaSettings'
 import { Dashboard } from './pages/Dashboard'
 
 const queryClient = new QueryClient({
@@ -69,6 +70,10 @@ export default function App() {
             <Route
               path="/admin/tags"
               element={<RequireAdmin><AdminTags /></RequireAdmin>}
+            />
+            <Route
+              path="/admin/fakturownia"
+              element={<RequireAdmin><FakturowniaSettings /></RequireAdmin>}
             />
           </Route>
           <Route path="*" element={<Navigate to="/dashboard" replace />} />

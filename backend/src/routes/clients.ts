@@ -8,7 +8,11 @@ const CreateSchema = z.object({
   hourlyRate: z.number().nonnegative(),
 })
 
-const UpdateSchema = CreateSchema.partial()
+const UpdateSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  hourlyRate: z.number().nonnegative().optional(),
+  fakturowniaId: z.string().max(50).nullable().optional(),
+})
 
 export async function clientsRoutes(app: FastifyInstance) {
   const opts = { onRequest: [app.authenticate] }

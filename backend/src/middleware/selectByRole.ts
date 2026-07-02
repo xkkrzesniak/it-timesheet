@@ -74,7 +74,7 @@ export function timeEntryWhereForUser(caller: Pick<JwtPayload, 'sub' | 'role'>, 
 export function clientSelectForRole(role: Role) {
   const base = { id: true, name: true, isActive: true }
   if (role === Role.ADMIN) {
-    return { ...base, hourlyRate: true, createdAt: true, updatedAt: true }
+    return { ...base, hourlyRate: true, fakturowniaId: true, createdAt: true, updatedAt: true }
   }
   return base
 }
