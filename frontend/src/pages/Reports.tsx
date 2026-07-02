@@ -12,7 +12,6 @@ import { Select } from '@/components/ui/Select'
 import { Modal } from '@/components/ui/Modal'
 import { StatCard } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
-import type { InvoicePreview } from '@/types'
 
 export function Reports() {
   const { user } = useAuthStore()
